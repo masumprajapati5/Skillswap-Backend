@@ -104,7 +104,6 @@ const seedDatabase = async () => {
         console.log('Created admin user (admin@skillswap.com / admin@123)');
       }
     }
-    }
 
     console.log('Auto-seeding complete.');
   } catch (error) {
