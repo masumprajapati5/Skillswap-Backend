@@ -50,7 +50,7 @@ const seedDatabase = async () => {
     const skillCount = await Skill.countDocuments();
 
     // If database already has data, don't seed (to prevent duplicates)
-    if (userCount > 0 && skillCount > 10) {
+    if (userCount >= 6 && skillCount >= 30) {
       console.log('Database already populated. Skipping auto-seed.');
       return;
     }
@@ -69,34 +69,41 @@ const seedDatabase = async () => {
     allSkills.forEach(s => { skillMap[s.name] = s._id; });
 
     // Seed users if needed
-    if (userCount === 0) {
+    if (userCount < 6) {
+      console.log('Database underpopulated. Seeding sample users...');
       for (const u of SAMPLE_USERS) {
+        const exists = await User.findOne({ email: u.email });
+        if (!exists) {
+          await User.create({
+            name: u.name,
+            email: u.email,
+            password: u.password,
+            bio: u.bio,
+            location: { city: 'Bangalore', country: 'India' },
+            skillsOffered: u.offered.map(name => skillMap[name]).filter(Boolean),
+            skillsWanted: u.wanted.map(name => skillMap[name]).filter(Boolean),
+            credits: 25,
+            rating: (4 + Math.random()).toFixed(1),
+            isVerified: true,
+          });
+        }
+      }
+
+      // Create admin user if not exists
+      const adminExists = await User.findOne({ email: 'admin@skillswap.com' });
+      if (!adminExists) {
         await User.create({
-          name: u.name,
-          email: u.email,
-          password: u.password, // Assuming User model has pre-save hook for hashing
-          bio: u.bio,
-          location: { city: 'Bangalore', country: 'India' },
-          skillsOffered: u.offered.map(name => skillMap[name]).filter(Boolean),
-          skillsWanted: u.wanted.map(name => skillMap[name]).filter(Boolean),
-          credits: 25,
-          rating: (4 + Math.random()).toFixed(1),
+          name: 'Admin',
+          email: 'admin@skillswap.com',
+          password: 'admin@123',
+          bio: 'Platform administrator',
+          role: 'admin',
+          credits: 9999,
           isVerified: true,
         });
+        console.log('Created admin user (admin@skillswap.com / admin@123)');
       }
-      console.log(`Seeded ${SAMPLE_USERS.length} sample users`);
-
-      // Create admin user
-      await User.create({
-        name: 'Admin',
-        email: 'admin@skillswap.com',
-        password: 'admin@123',
-        bio: 'Platform administrator',
-        role: 'admin',
-        credits: 9999,
-        isVerified: true,
-      });
-      console.log('Created admin user (admin@skillswap.com / admin@123)');
+    }
     }
 
     console.log('Auto-seeding complete.');
