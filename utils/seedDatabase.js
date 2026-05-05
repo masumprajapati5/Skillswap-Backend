@@ -58,7 +58,8 @@ const seedDatabase = async () => {
     console.log('Running auto-seeder...');
 
     // Seed skills if needed
-    if (skillCount === 0) {
+    if (skillCount < 30) {
+      await Skill.deleteMany({});
       await Skill.insertMany(SKILLS);
       console.log(`Seeded ${SKILLS.length} skills`);
     }
