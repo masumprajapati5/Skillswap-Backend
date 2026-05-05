@@ -1,104 +1,106 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Skill = require('../models/Skill');
 
+const SKILLS = [
+  { name: 'React', description: 'Modern frontend library for building user interfaces' },
+  { name: 'Node.js', description: 'Server-side JavaScript runtime' },
+  { name: 'Python', description: 'General-purpose programming language' },
+  { name: 'TypeScript', description: 'Typed superset of JavaScript' },
+  { name: 'Machine Learning', description: 'AI and data science techniques' },
+  { name: 'Flutter', description: 'Cross-platform mobile framework' },
+  { name: 'Rust', description: 'Systems programming language' },
+  { name: 'Go', description: 'Fast, compiled server language' },
+  { name: 'Figma', description: 'UI/UX design and prototyping tool' },
+  { name: 'UI/UX Design', description: 'User interface and experience design' },
+  { name: 'Illustration', description: 'Digital and traditional illustration' },
+  { name: 'Motion Graphics', description: 'Animated visual content' },
+  { name: '3D Modeling', description: 'Blender, Maya, Cinema 4D' },
+  { name: 'SEO', description: 'Search engine optimization' },
+  { name: 'Copywriting', description: 'Persuasive and engaging writing' },
+  { name: 'Social Media', description: 'Social platform strategy' },
+  { name: 'Content Strategy', description: 'Content planning and execution' },
+  { name: 'Spanish', description: 'Spanish language tutoring' },
+  { name: 'French', description: 'French language tutoring' },
+  { name: 'Japanese', description: 'Japanese language tutoring' },
+  { name: 'Mandarin', description: 'Mandarin Chinese tutoring' },
+  { name: 'Guitar', description: 'Acoustic and electric guitar' },
+  { name: 'Piano', description: 'Piano and keyboard lessons' },
+  { name: 'Music Production', description: 'DAW, mixing, and mastering' },
+  { name: 'Photography', description: 'Digital photography techniques' },
+  { name: 'Video Editing', description: 'Premiere Pro, DaVinci Resolve' },
+  { name: 'Yoga', description: 'Yoga instruction and practice' },
+  { name: 'Cooking', description: 'Culinary skills and recipes' },
+  { name: 'Public Speaking', description: 'Presentation and speaking skills' },
+  { name: 'Data Science', description: 'Data analysis and visualization' },
+];
+
+const SAMPLE_USERS = [
+  { name: 'Arjun Krishnamurthy', email: 'arjun@skillswap.dev', password: 'password123', bio: 'Senior developer. 6+ years React. Passionate about teaching.', offered: ['React', 'Node.js', 'TypeScript'], wanted: ['Video Editing', 'Photography', 'Guitar'] },
+  { name: 'Priya Malhotra', email: 'priya@skillswap.dev', password: 'password123', bio: 'Design student turned developer. Trading design for code.', offered: ['Figma', 'UI/UX Design', 'Illustration'], wanted: ['React', 'Python', 'Node.js'] },
+  { name: 'Meera Sharma', email: 'meera@skillswap.dev', password: 'password123', bio: 'Illustrator wanting to learn digital marketing.', offered: ['Illustration', 'Figma'], wanted: ['SEO', 'Social Media', 'Copywriting'] },
+  { name: 'Dev Thakur', email: 'dev@skillswap.dev', password: 'password123', bio: 'ML engineer. Building the future with data.', offered: ['Python', 'Machine Learning', 'Data Science'], wanted: ['Figma', 'UI/UX Design'] },
+  { name: 'Karan Patel', email: 'karan@skillswap.dev', password: 'password123', bio: 'Music teacher and part-time developer.', offered: ['Guitar', 'Piano', 'Music Production'], wanted: ['React', 'Flutter'] },
+];
+
 const seedDatabase = async () => {
   try {
-    console.log('Running auto-seeder checks...');
+    const userCount = await User.countDocuments();
+    const skillCount = await Skill.countDocuments();
 
-    // 1. Check and Seed Admin
-    const adminExists = await User.findOne({ role: 'admin' });
-    if (!adminExists) {
-      console.log('No Admin found. Seeding admin...');
-      const adminUser = await User.create({
+    // If database already has data, don't seed (to prevent duplicates)
+    if (userCount > 0 && skillCount > 10) {
+      console.log('Database already populated. Skipping auto-seed.');
+      return;
+    }
+
+    console.log('Running auto-seeder...');
+
+    // Seed skills if needed
+    if (skillCount === 0) {
+      await Skill.insertMany(SKILLS);
+      console.log(`Seeded ${SKILLS.length} skills`);
+    }
+
+    const allSkills = await Skill.find({});
+    const skillMap = {};
+    allSkills.forEach(s => { skillMap[s.name] = s._id; });
+
+    // Seed users if needed
+    if (userCount === 0) {
+      for (const u of SAMPLE_USERS) {
+        await User.create({
+          name: u.name,
+          email: u.email,
+          password: u.password, // Assuming User model has pre-save hook for hashing
+          bio: u.bio,
+          location: { city: 'Bangalore', country: 'India' },
+          skillsOffered: u.offered.map(name => skillMap[name]).filter(Boolean),
+          skillsWanted: u.wanted.map(name => skillMap[name]).filter(Boolean),
+          credits: 25,
+          rating: (4 + Math.random()).toFixed(1),
+          isVerified: true,
+        });
+      }
+      console.log(`Seeded ${SAMPLE_USERS.length} sample users`);
+
+      // Create admin user
+      await User.create({
         name: 'Admin',
         email: 'admin@skillswap.com',
-        password: 'admin@123', // Note: User model usually hashes password in pre-save
+        password: 'admin@123',
+        bio: 'Platform administrator',
         role: 'admin',
         credits: 9999,
-        bio: 'Platform administrator',
-        location: { city: 'Remote', country: 'Global' }
+        isVerified: true,
       });
-      console.log('Admin user seeded.');
+      console.log('Created admin user (admin@skillswap.com / admin@123)');
     }
 
-    // 2. Check and Seed Demo Users & Skills
-    const userCount = await User.countDocuments({ role: 'user' });
-    const skillCount = await Skill.countDocuments();
-    if (userCount === 0 || skillCount < 10) {
-      console.log('Database seems underpopulated. Seeding demo users and skills...');
-
-      const demoUser1 = await User.create({
-        name: 'Arjun Krishnamurthy',
-        email: 'arjun@skillswap.dev',
-        password: 'password123',
-        role: 'user',
-        credits: 45,
-        bio: 'Enthusiastic web developer looking to learn design.',
-        location: { city: 'Bangalore', country: 'India' },
-        rating: 4.8
-      });
-
-      const demoUser2 = await User.create({
-        name: 'Priya Malhotra',
-        email: 'priya@skillswap.dev',
-        password: 'password123',
-        role: 'user',
-        credits: 25,
-        bio: 'Graphic designer who loves to teach illustration.',
-        location: { city: 'Mumbai', country: 'India' },
-        rating: 5.0
-      });
-
-      const skillData = [
-        { name: 'React Development', description: 'Building modern web apps using React.js.' },
-        { name: 'Node.js API', description: 'Creating RESTful APIs with Node and Express.' },
-        { name: 'UI/UX Design', description: 'Designing user interfaces using Figma.' },
-        { name: 'Spanish', description: 'Conversational Spanish lessons.' },
-        { name: 'Python Development', description: 'Scripting, Data Science, and Backend with Python.' },
-        { name: 'JavaScript', description: 'Core JS concepts, ES6+, and DOM manipulation.' },
-        { name: 'TypeScript', description: 'Type-safe JavaScript development.' },
-        { name: 'HTML/CSS', description: 'Modern semantic HTML and advanced CSS layout techniques.' },
-        { name: 'Figma Design', description: 'Prototyping and design systems in Figma.' },
-        { name: 'Adobe Photoshop', description: 'Professional image editing and manipulation.' },
-        { name: 'Video Editing', description: 'Editing cinematic videos using Premiere Pro or DaVinci.' },
-        { name: 'Digital Marketing', description: 'Social media growth and online advertising strategies.' },
-        { name: 'Content Writing', description: 'SEO-friendly writing and storytelling.' },
-        { name: 'Public Speaking', description: 'Confident presentation and communication skills.' },
-        { name: 'Data Analysis', description: 'Extracting insights from data using Excel or SQL.' },
-        { name: 'Machine Learning', description: 'Basic AI concepts and model training.' },
-        { name: 'DevOps', description: 'CI/CD pipelines, Docker, and Cloud infrastructure.' },
-        { name: 'Guitar Lessons', description: 'Basic to advanced guitar techniques.' },
-        { name: 'Piano Lessons', description: 'Classical and contemporary piano playing.' },
-        { name: 'Vocal Training', description: 'Voice control, pitch, and performance.' },
-        { name: 'French Language', description: 'Learning conversational French.' },
-        { name: 'German Language', description: 'Mastering German grammar and speech.' },
-        { name: 'Japanese Language', description: 'Introduction to Kanji and spoken Japanese.' },
-        { name: 'Financial Planning', description: 'Budgeting, investing, and wealth management.' },
-        { name: 'Project Management', description: 'Leading teams and managing workflows using Agile/Scrum.' },
-        { name: 'SEO Optimization', description: 'Boosting website rankings on search engines.' },
-        { name: 'Photography', description: 'Capturing high-quality images and lighting techniques.' },
-        { name: 'Cooking (Italian)', description: 'Mastering pasta, pizza, and classic Italian dishes.' },
-        { name: 'Yoga & Wellness', description: 'Improving flexibility and mindfulness through Yoga.' },
-        { name: 'Personal Training', description: 'Fitness coaching and workout planning.' }
-      ];
-      const createdSkills = await Skill.insertMany(skillData);
-
-      if (createdSkills.length >= 4) {
-        demoUser1.skillsOffered.push(createdSkills[0]._id);
-        demoUser1.skillsWanted.push(createdSkills[2]._id);
-        await demoUser1.save();
-
-        demoUser2.skillsOffered.push(createdSkills[2]._id);
-        demoUser2.skillsWanted.push(createdSkills[0]._id);
-        await demoUser2.save();
-      }
-      console.log('Demo users and skills seeded.');
-    }
-
-    console.log('Auto-seeding checks complete.');
+    console.log('Auto-seeding complete.');
   } catch (error) {
-    console.error('Error during database auto-seeding:', error);
+    console.error('Error during auto-seeding:', error);
   }
 };
 
